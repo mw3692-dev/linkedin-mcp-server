@@ -360,18 +360,19 @@ app.get("/auth/callback", async (req, res) => {
     const tokenData = (await tokenRes.json()) as { access_token: string; expires_in: number };
     accessToken = tokenData.access_token;
 
-    // Get person URN via /v2/me
-    const userRes = await fetch("https://api.linkedin.com/v2/me", {
+    // Try multiple endpoints to get person URN
+    let userName = "Unknown";
+
+    // Try /v2/me first
+    const meRes = await fetch("https://api.linkedin.com/v2/me", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-
-    let userName = "Unknown";
-    if (userRes.ok) {
-      const userData = (await userRes.json()) as { id: string; localizedFirstName?: string; localizedLastName?: string };
-      personUrn = `urn:li:person:${userData.id}`;
-      userName = [userData.localizedFirstName, userData.localizedLastName].filter(Boolean).join(" ") || "Unknown";
+    if (meRes.ok) {
+      const meData = (await meRes.json()) as { id: string; localizedFirstName?: string; localizedLastName?: string };
+      personUrn = `urn:li:person:${meData.id}`;
+      userName = [meData.localizedFirstName, meData.localizedLastName].filter(Boolean).join(" ") || "Unknown";
     } else {
-      // If /v2/me fails, try /v2/userinfo
+      // Try /v2/userinfo
       const uiRes = await fetch("https://api.linkedin.com/v2/userinfo", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -380,8 +381,22 @@ app.get("/auth/callback", async (req, res) => {
         personUrn = `urn:li:person:${uiData.sub}`;
         userName = uiData.name || "Unknown";
       } else {
-        res.status(400).send("Failed to fetch user info. Token may not have sufficient permissions.");
-        return;
+        // Last resort: use the REST API /me endpoint with versioned header
+        const restMeRes = await fetch("https://api.linkedin.com/rest/me", {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "LinkedIn-Version": "202501",
+            "X-Restli-Protocol-Version": "2.0.0",
+          },
+        });
+        if (restMeRes.ok) {
+          const restData = (await restMeRes.json()) as { id?: string; sub?: string };
+          const id = restData.sub || restData.id || "";
+          personUrn = `urn:li:person:${id}`;
+        } else {
+          // Store token anyway — user can set LINKEDIN_PERSON_URN manually
+          console.log("Could not auto-detect person URN. User must set LINKEDIN_PERSON_URN env var.");
+        }
       }
     }
 
@@ -391,8 +406,8 @@ app.get("/auth/callback", async (req, res) => {
       <html>
         <body style="font-family: system-ui; max-width: 600px; margin: 40px auto; padding: 20px;">
           <h1>LinkedIn Connected!</h1>
-          <p>Authenticated as: <strong>${userName || "Unknown"}</strong></p>
-          <p>Person URN: <code>${personUrn}</code></p>
+          <p>Authenticated as: <strong>${userName}</strong></p>
+          ${personUrn ? `<p>Person URN: <code>${personUrn}</code></p>` : `<p style="color:orange;">Could not auto-detect Person URN. Set LINKEDIN_PERSON_URN env var manually.</p>`}
           <p>Token expires in: ${expiresInDays} days</p>
           <hr>
           <h2>Save these as Railway environment variables for persistence:</h2>
