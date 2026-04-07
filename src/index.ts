@@ -241,7 +241,7 @@ function createServer(): McpServer {
 
         if (res.ok) {
           const info = (await res.json()) as { localizedFirstName?: string; localizedLastName?: string };
-          const name = [info.localizedFirstName, info.localizedLastName].filter(Boolean).join(" ");
+          const name = [info.localizedFirstName, info.localizedLastName].filter(Boolean).join(" ") || "Unknown";
           return {
             content: [
               {
@@ -324,7 +324,7 @@ app.get("/auth/login", (_req, res) => {
     client_id: LINKEDIN_CLIENT_ID,
     redirect_uri: REDIRECT_URI,
     state,
-    scope: "profile w_member_social",
+    scope: "w_member_social",
   });
 
   res.redirect(`https://www.linkedin.com/oauth/v2/authorization?${params}`);
@@ -360,19 +360,30 @@ app.get("/auth/callback", async (req, res) => {
     const tokenData = (await tokenRes.json()) as { access_token: string; expires_in: number };
     accessToken = tokenData.access_token;
 
-    // Get person URN
+    // Get person URN via /v2/me
     const userRes = await fetch("https://api.linkedin.com/v2/me", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
-    if (!userRes.ok) {
-      res.status(400).send("Failed to fetch user info");
-      return;
+    let userName = "Unknown";
+    if (userRes.ok) {
+      const userData = (await userRes.json()) as { id: string; localizedFirstName?: string; localizedLastName?: string };
+      personUrn = `urn:li:person:${userData.id}`;
+      userName = [userData.localizedFirstName, userData.localizedLastName].filter(Boolean).join(" ") || "Unknown";
+    } else {
+      // If /v2/me fails, try /v2/userinfo
+      const uiRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (uiRes.ok) {
+        const uiData = (await uiRes.json()) as { sub: string; name?: string };
+        personUrn = `urn:li:person:${uiData.sub}`;
+        userName = uiData.name || "Unknown";
+      } else {
+        res.status(400).send("Failed to fetch user info. Token may not have sufficient permissions.");
+        return;
+      }
     }
-
-    const userData = (await userRes.json()) as { id: string; localizedFirstName?: string; localizedLastName?: string };
-    personUrn = `urn:li:person:${userData.id}`;
-    const userName = [userData.localizedFirstName, userData.localizedLastName].filter(Boolean).join(" ");
 
     const expiresInDays = Math.round(tokenData.expires_in / 86400);
 
