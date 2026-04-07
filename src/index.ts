@@ -235,17 +235,18 @@ function createServer(): McpServer {
 
       // Verify the token is still valid
       try {
-        const res = await fetch("https://api.linkedin.com/v2/userinfo", {
+        const res = await fetch("https://api.linkedin.com/v2/me", {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
 
         if (res.ok) {
-          const info = (await res.json()) as { name?: string; email?: string };
+          const info = (await res.json()) as { localizedFirstName?: string; localizedLastName?: string };
+          const name = [info.localizedFirstName, info.localizedLastName].filter(Boolean).join(" ");
           return {
             content: [
               {
                 type: "text" as const,
-                text: `Authenticated as: ${info.name || "Unknown"} (${info.email || "no email"})\nPerson URN: ${personUrn}`,
+                text: `Authenticated as: ${name || "Unknown"}\nPerson URN: ${personUrn}`,
               },
             ],
           };
@@ -323,7 +324,7 @@ app.get("/auth/login", (_req, res) => {
     client_id: LINKEDIN_CLIENT_ID,
     redirect_uri: REDIRECT_URI,
     state,
-    scope: "openid profile w_member_social",
+    scope: "profile w_member_social",
   });
 
   res.redirect(`https://www.linkedin.com/oauth/v2/authorization?${params}`);
@@ -360,7 +361,7 @@ app.get("/auth/callback", async (req, res) => {
     accessToken = tokenData.access_token;
 
     // Get person URN
-    const userRes = await fetch("https://api.linkedin.com/v2/userinfo", {
+    const userRes = await fetch("https://api.linkedin.com/v2/me", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
@@ -369,8 +370,9 @@ app.get("/auth/callback", async (req, res) => {
       return;
     }
 
-    const userData = (await userRes.json()) as { sub: string; name?: string; email?: string };
-    personUrn = `urn:li:person:${userData.sub}`;
+    const userData = (await userRes.json()) as { id: string; localizedFirstName?: string; localizedLastName?: string };
+    personUrn = `urn:li:person:${userData.id}`;
+    const userName = [userData.localizedFirstName, userData.localizedLastName].filter(Boolean).join(" ");
 
     const expiresInDays = Math.round(tokenData.expires_in / 86400);
 
@@ -378,7 +380,7 @@ app.get("/auth/callback", async (req, res) => {
       <html>
         <body style="font-family: system-ui; max-width: 600px; margin: 40px auto; padding: 20px;">
           <h1>LinkedIn Connected!</h1>
-          <p>Authenticated as: <strong>${userData.name || "Unknown"}</strong></p>
+          <p>Authenticated as: <strong>${userName || "Unknown"}</strong></p>
           <p>Person URN: <code>${personUrn}</code></p>
           <p>Token expires in: ${expiresInDays} days</p>
           <hr>
