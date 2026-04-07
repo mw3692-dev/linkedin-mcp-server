@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import express from "express";
 import { z } from "zod";
+import fetch from "node-fetch";
 
 // --- LinkedIn OAuth + API config ---
 
@@ -279,7 +280,7 @@ function createServer(): McpServer {
 
 // --- LinkedIn API helper ---
 
-async function createPost(commentary: string, lifecycleState: string): Promise<Response> {
+async function createPost(commentary: string, lifecycleState: string) {
   return fetch("https://api.linkedin.com/rest/posts", {
     method: "POST",
     headers: {
