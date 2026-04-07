@@ -324,7 +324,7 @@ app.get("/auth/login", (_req, res) => {
     client_id: LINKEDIN_CLIENT_ID,
     redirect_uri: REDIRECT_URI,
     state,
-    scope: "w_member_social",
+    scope: "openid profile w_member_social",
   });
 
   res.redirect(`https://www.linkedin.com/oauth/v2/authorization?${params}`);
