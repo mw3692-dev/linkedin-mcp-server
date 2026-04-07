@@ -418,6 +418,8 @@ LINKEDIN_PERSON_URN=${personUrn}</pre>
       </html>
     `);
   } catch (err) {
+    const msg = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
+    console.error("OAuth callback error:", msg);
     res.status(500).send(`OAuth error: ${err instanceof Error ? err.message : String(err)}`);
   }
 });
