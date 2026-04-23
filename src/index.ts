@@ -441,7 +441,7 @@ app.post("/mcp", async (req, res) => {
   if (sessionId) {
     const transport = transports.get(sessionId);
     if (!transport) {
-      res.status(400).json({ error: "Session not found" });
+      res.status(404).json({ error: "Session not found" });
       return;
     }
     await transport.handleRequest(req, res, req.body);
@@ -463,7 +463,7 @@ app.get("/mcp", async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   const transport = sessionId ? transports.get(sessionId) : undefined;
   if (!transport) {
-    res.status(400).json({ error: "No active session" });
+    res.status(404).json({ error: "No active session" });
     return;
   }
   await transport.handleRequest(req, res);
@@ -473,7 +473,7 @@ app.delete("/mcp", async (req, res) => {
   const sessionId = req.headers["mcp-session-id"] as string | undefined;
   const transport = sessionId ? transports.get(sessionId) : undefined;
   if (!transport) {
-    res.status(400).json({ error: "No active session" });
+    res.status(404).json({ error: "No active session" });
     return;
   }
   await transport.handleRequest(req, res);
