@@ -287,7 +287,7 @@ async function createPost(commentary: string, lifecycleState: string) {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       "X-Restli-Protocol-Version": "2.0.0",
-      "LinkedIn-Version": "202504",
+      "LinkedIn-Version": "202604",
     },
     body: JSON.stringify({
       author: personUrn,
@@ -386,7 +386,7 @@ app.get("/auth/callback", async (req, res) => {
         const restMeRes = await fetch("https://api.linkedin.com/rest/me", {
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            "LinkedIn-Version": "202504",
+            "LinkedIn-Version": "202604",
             "X-Restli-Protocol-Version": "2.0.0",
           },
         });
